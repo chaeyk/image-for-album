@@ -5,6 +5,7 @@ from os import listdir
 from os.path import isfile, join
 from pathlib import Path
 import traceback
+import re
 
 def loadFont(fontfiles):
   for fontfile in fontfiles:
@@ -32,7 +33,7 @@ def getImageDateTime(exif, filename):
   # 없으면 끝
   return None
 
-def processImage(filepath, filename, outpath):
+def processImage(filepath, filename, outpath, target_width, target_height):
   try:
     with Image.open(join(filepath, filename)) as image:
       exif = image._getexif()
@@ -50,23 +51,18 @@ def processImage(filepath, filename, outpath):
           image=image.rotate(90, expand=True)
           exif[Base.Orientation.value] = 0
 
-      # 이미지 크기 줄임
-      if image.width * 4 <= image.height * 3:
-        if image.width > 1000:
-          image = image.resize((1000, int(image.height * 1000 / image.width)), Image.Resampling.BICUBIC)
-      else:
-        if image.height > 1334:
-          image = image.resize((int(image.width * 1334 / image.height), 1334), Image.Resampling.BICUBIC)
-
-      # 가로 세로 비율이 3:4 가 아니면 잘라서 맞춘다
-      profitHeight = image.width * 4 / 3
+      # 가로 세로 비율이 안맞으면 잘라서 맞춘다
+      profitHeight = image.width * target_height / target_width
       if image.height > profitHeight:
         image = image.crop((0, (image.height - profitHeight) / 2, image.width, (image.height + profitHeight) / 2))
 
-      profitWidth = image.height * 3 / 4
+      profitWidth = image.height * target_width / target_height
       if image.width > profitWidth:
         image = image.crop(((image.width - profitWidth) / 2, 0, (image.width + profitWidth) / 2, image.height))
 
+      # 이미지 크기 줄임
+      if image.width > target_width:
+        image = image.resize((target_width, target_height), Image.Resampling.BICUBIC)
 
       # 날짜 새기기
       dt = getImageDateTime(exif, filename)
@@ -81,9 +77,18 @@ def processImage(filepath, filename, outpath):
     print('failed:', filename, '-', e)
     traceback.print_exc()
 
+def parseSize(value):
+  p = re.compile('^(\d+),(\d+)$')
+  match = p.match(value)
+  if not match:
+    raise argparse.ArgumentTypeError('size must be in the format of "width,height"')
+
+  return (int(match.group(1)), int(match.group(2)))
+
 parser = argparse.ArgumentParser(description='image rotator')
 parser.add_argument('filepath')
 parser.add_argument('--outpath', default='output')
+parser.add_argument('--size', type=parseSize, default='900,1200')
 args = parser.parse_args()
 
 if (isfile(args.filepath)):
@@ -98,6 +103,10 @@ else:
     if (isfile(filename) and filename.endswith('.jpg')):
       filenames.append(f)
 
+target_width = args.size[0]
+target_height = args.size[1]
+
 font = loadFont(['comic.ttf', 'arial.ttf'])
+
 for filename in filenames:
-  processImage(filepath, filename, args.outpath)
+  processImage(filepath, filename, args.outpath, target_width, target_height)
