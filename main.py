@@ -12,7 +12,7 @@ def ratioTarget(ratio1, ratio2, value1):
   return value1 * ratio2 / ratio1
 
 def loadFont(fontfiles, image_width, image_height):
-  # 이미지 크기가 1000 x 1334 일때 폰트 크기 40
+  # 이미지 크기가 1000 x 1334 일때 폰트 크기 60
   size_by_width = ratioTarget(1000, 60, image_width)
   size_by_height = ratioTarget(1334, 60, image_height)
   size = round(min(size_by_width, size_by_height))
